@@ -4,15 +4,25 @@ import type { AgentEvent } from "../agent/types";
 
 const WINDOW_MS = 10 * 60 * 1000;
 const MAX_RUNS_PER_WINDOW = 12;
+/** Cap for the whole instance, so a client rotating IPs cannot burn the API quotas. */
+const MAX_GLOBAL_RUNS_PER_WINDOW = 60;
 const hits = new Map<string, number[]>();
+let globalHits: number[] = [];
+
+/** Client IP as set by the Vercel edge (x-real-ip cannot be forged by the client). */
+export function clientIp(headers: Headers): string {
+  return headers.get("x-real-ip")?.trim() || "unknown";
+}
 
 export function allowRun(ip: string, now = Date.now()): boolean {
+  globalHits = globalHits.filter((t) => now - t < WINDOW_MS);
   const recent = (hits.get(ip) ?? []).filter((t) => now - t < WINDOW_MS);
-  if (recent.length >= MAX_RUNS_PER_WINDOW) {
+  if (recent.length >= MAX_RUNS_PER_WINDOW || globalHits.length >= MAX_GLOBAL_RUNS_PER_WINDOW) {
     hits.set(ip, recent);
     return false;
   }
   recent.push(now);
+  globalHits.push(now);
   hits.set(ip, recent);
   if (hits.size > 5000) hits.delete(hits.keys().next().value!);
   return true;

@@ -5,7 +5,7 @@ import { runEncore } from "@/lib/agent/run";
 import { messageOf } from "@/lib/agent/toolkit";
 import type { AgentEvent } from "@/lib/agent/types";
 import { qlooMode } from "@/lib/qloo/client";
-import { allowRun, getRecordedRun, runKey, saveRecordedRun } from "@/lib/server/guard";
+import { allowRun, clientIp, getRecordedRun, runKey, saveRecordedRun } from "@/lib/server/guard";
 
 export const maxDuration = 60;
 
@@ -23,7 +23,7 @@ export async function POST(request: Request) {
   const llm = llmConfig();
   const key = runKey(brief, `${qlooMode()}|${llm?.id ?? "scripted"}`);
   const recorded = getRecordedRun(key);
-  const ip = (request.headers.get("x-forwarded-for") ?? "local").split(",")[0].trim();
+  const ip = clientIp(request.headers);
   if (!recorded && !allowRun(ip)) {
     return Response.json(
       { error: "Demo rate limit reached (12 plans per 10 minutes). Try one of the example briefs: they are cached." },
